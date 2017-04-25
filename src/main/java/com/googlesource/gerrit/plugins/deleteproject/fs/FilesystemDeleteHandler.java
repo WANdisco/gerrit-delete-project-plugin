@@ -63,6 +63,13 @@ public class FilesystemDeleteHandler {
     this.pluginName = pluginName;
   }
 
+  public void deleteFromCache(Project project) throws RepositoryNotFoundException, IOException{
+    // Remove from the jgit cache
+    Repository repository =
+        repoManager.openRepository(project.getNameKey());
+    cleanCache(repository);
+  }
+
   public void delete(Project project, boolean preserveGitRepository)
       throws IOException, RepositoryNotFoundException {
     // Remove from the jgit cache
