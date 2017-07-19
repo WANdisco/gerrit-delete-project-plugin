@@ -18,6 +18,7 @@ import com.google.gerrit.common.data.AccessSection;
 import com.google.gerrit.extensions.annotations.PluginName;
 import com.google.gerrit.extensions.client.ProjectState;
 import com.google.gerrit.extensions.restapi.BadRequestException;
+import com.google.gerrit.extensions.restapi.PreconditionFailedException;
 import com.google.gerrit.extensions.restapi.ResourceConflictException;
 import com.google.gerrit.extensions.restapi.ResourceNotFoundException;
 import com.google.gerrit.extensions.restapi.TopLevelResource;
@@ -97,7 +98,7 @@ class HideProject {
         createProjectFactory.create(projectName).apply(
             TopLevelResource.INSTANCE, null);
       } catch (BadRequestException | UnprocessableEntityException
-          | ResourceNotFoundException | ConfigInvalidException e) {
+          | ResourceNotFoundException | ConfigInvalidException | PreconditionFailedException e) {
         throw new ResourceConflictException(String.format(
             "Failed to create project %s", projectName));
       }
