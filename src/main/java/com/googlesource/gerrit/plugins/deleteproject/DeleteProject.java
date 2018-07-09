@@ -290,15 +290,11 @@ class DeleteProject implements RestModifyView<ProjectResource, Input> {
     }
 
     if (repoParentPath != null) {
-      String repoLocation = repoParentPath + "/" + project.getName() + ".git";
-
-      String repoConfig = repoLocation + "/" + "config";
-
-      if (!StringUtils.isEmptyOrNull(repoConfig)) {
-        File repoConfigFile = new File(repoConfig);
-        if (repoConfigFile.canRead()) {
-          replicatedProperty = getProperty(repoConfigFile, "replicated");
-        }
+      replicatedProperty = checkIfReplicated(repoParentPath, project.getName() + ".git");
+      
+      // the project may not have a .git extension so try without it
+      if (replicatedProperty == null) {
+        replicatedProperty = checkIfReplicated(repoParentPath, project.getName());
       }
     }
 
@@ -317,47 +313,27 @@ class DeleteProject implements RestModifyView<ProjectResource, Input> {
     final Logger log = LoggerFactory.getLogger(DeleteProject.class);
     log.debug("Verifying if project: " + project.getName() + " is replicated.");
 
-    boolean replicatedRepo = false;
+    boolean replicatedRepo = isRepoReplicated(project);
 
-    // get the GitMS config file
-    FileBasedConfig config = getConfigFile();
-
-    String repoParentPath = null;
-    String replicatedProperty = null;
-    String appProperties = config.getString("core", null, "gitmsconfig");
-
-    if (!StringUtils.isEmptyOrNull(appProperties)) {
-      File appPropertiesFile = new File(appProperties);
-      if (appPropertiesFile.canRead()) {
-        repoParentPath = getProperty(appPropertiesFile, "gerrit.repo.home");
-      }
-    }
-
-    if (repoParentPath != null) {
-      String repoLocation = repoParentPath + "/" + project.getName() + ".git";
-      log.debug("Repo Location: " + repoLocation);
-
-      String repoConfig = repoLocation + "/" + "config";
-
-      if (!StringUtils.isEmptyOrNull(repoConfig)) {
-        File repoConfigFile = new File(repoConfig);
-        if (repoConfigFile.canRead()) {
-          replicatedProperty = getProperty(repoConfigFile, "replicated");
-        }
-      }
-    }
-
-    if (replicatedProperty == null || replicatedProperty.equalsIgnoreCase("false")) {
-      replicatedRepo = false;
-    } else if (replicatedProperty.equalsIgnoreCase("true")) {
-      replicatedRepo = true;
-    } else {
-      replicatedRepo = false;
-    }
-
-    log.debug("Replicated property: " + replicatedProperty);
+    log.debug("Replicated property: " + replicatedRepo);
 
     return replicatedRepo;
+  }
+  
+  private final static String checkIfReplicated(final String repoParentPath, final String projectName) throws IOException {
+    String replicatedProperty = null;
+    String repoLocation = repoParentPath + "/" + projectName;
+
+    String repoConfig = repoLocation + "/" + "config";
+
+    if (!StringUtils.isEmptyOrNull(repoConfig)) {
+      File repoConfigFile = new File(repoConfig);
+      if (repoConfigFile.canRead()) {
+        replicatedProperty = getProperty(repoConfigFile, "replicated");
+      }
+    }
+    
+    return replicatedProperty;
   }
 
   /*
