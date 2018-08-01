@@ -313,7 +313,7 @@ class DeleteProject implements RestModifyView<ProjectResource, Input> {
     final Logger log = LoggerFactory.getLogger(DeleteProject.class);
     log.debug("Verifying if project: " + project.getName() + " is replicated.");
 
-    boolean replicatedRepo = isRepoReplicated(project);
+    boolean replicatedRepo = DeleteProject.isRepoReplicated(project);
 
     log.debug("Replicated property: " + replicatedRepo);
 
