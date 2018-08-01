@@ -272,7 +272,7 @@ class DeleteProject implements RestModifyView<ProjectResource, Input> {
    * @return
    * @throws IOException
    */
-  public static boolean isRepoReplicated(ProjectResource project) throws IOException {
+  public static boolean isRepoReplicated(String projectName) throws IOException {
     boolean replicatedRepo = false;
 
     // get the GitMS config file
@@ -290,11 +290,11 @@ class DeleteProject implements RestModifyView<ProjectResource, Input> {
     }
 
     if (repoParentPath != null) {
-      replicatedProperty = checkIfReplicated(repoParentPath, project.getName() + ".git");
+      replicatedProperty = checkIfReplicated(repoParentPath, projectName + ".git");
       
       // the project may not have a .git extension so try without it
       if (replicatedProperty == null) {
-        replicatedProperty = checkIfReplicated(repoParentPath, project.getName());
+        replicatedProperty = checkIfReplicated(repoParentPath, projectName);
       }
     }
 
@@ -311,9 +311,11 @@ class DeleteProject implements RestModifyView<ProjectResource, Input> {
 
   public boolean isRepoReplicated(Project project) throws IOException {
     final Logger log = LoggerFactory.getLogger(DeleteProject.class);
-    log.debug("Verifying if project: " + project.getName() + " is replicated.");
+    final String projectName = project.getName();
+    
+    log.debug("Verifying if project: " + projectName + " is replicated.");
 
-    boolean replicatedRepo = DeleteProject.isRepoReplicated(project);
+    boolean replicatedRepo = isRepoReplicated(projectName);
 
     log.debug("Replicated property: " + replicatedRepo);
 

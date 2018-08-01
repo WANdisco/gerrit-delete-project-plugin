@@ -57,7 +57,7 @@ public class DeleteAction extends DeleteProject implements
     Logger log = LoggerFactory.getLogger(ReplicatedProjectManager.class);
 
     try {
-      replicated = DeleteProject.isRepoReplicated(rsrc);
+      replicated = DeleteProject.isRepoReplicated(rsrc.getName());
     } catch (IOException e) {
       log.error("Error accessing the project :", rsrc.getName(), " Error: ", e, " [ Assuming a replicated repo is in place. ]" );
     }
