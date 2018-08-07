@@ -186,10 +186,20 @@ class DeleteProject implements RestModifyView<ProjectResource, Input> {
       }
     }
 
+    // get projectName, assume .git as default. If it doesn't exist, try without .git
+    File projectPath = new File(repoPath + "/" + project.getName() + ".git");
+    String projectName = project.getName() + ".git";
+    if (!projectPath.exists()) {
+      projectPath = new File(repoPath + "/" + project.getName());
+      if (projectPath.exists()) {
+        projectName = project.getName();
+      }
+    }
+    
     if (port != null && !port.isEmpty()) {
       String taskIdForDelayedRemoval = "&taskIdForDelayedRemoval="+uuid;
       try {
-        repoPath = URLEncoder.encode(repoPath + "/" + project.getName() + ".git", "UTF-8");
+        repoPath = URLEncoder.encode(repoPath + "/" + projectName, "UTF-8");
         URL url = new URL("http://127.0.0.1:" + port + "/gerrit/delete?" + "repoPath=" + repoPath + taskIdForDelayedRemoval);
         log.info("Calling URL {}...", url);
         HttpURLConnection httpCon = (HttpURLConnection) url.openConnection();
