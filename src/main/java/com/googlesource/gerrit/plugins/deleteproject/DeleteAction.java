@@ -10,7 +10,7 @@
  * Apache License, Version 2.0
  *
  ********************************************************************************/
- 
+
 // Copyright (C) 2013 The Android Open Source Project
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -32,6 +32,7 @@ import com.google.gerrit.extensions.annotations.PluginName;
 import com.google.gerrit.extensions.webui.UiAction;
 import com.google.gerrit.server.CurrentUser;
 import com.google.gerrit.server.config.AllProjectsNameProvider;
+import com.google.gerrit.server.config.AllUsersNameProvider;
 import com.google.gerrit.server.config.PluginConfigFactory;
 import com.google.gerrit.server.project.ProjectResource;
 import com.google.inject.Inject;
@@ -51,6 +52,7 @@ public class DeleteAction extends DeleteProject implements
     UiAction<ProjectResource> {
   @Inject
   DeleteAction(AllProjectsNameProvider allProjectsNameProvider,
+      AllUsersNameProvider allUsersNameProvider,
       DatabaseDeleteHandler dbHandler,
       FilesystemDeleteHandler fsHandler,
       CacheDeleteHandler cacheHandler,
@@ -60,7 +62,7 @@ public class DeleteAction extends DeleteProject implements
       DeleteLog deleteLog,
       PluginConfigFactory cfgFactory,
       HideProject hideProject) {
-    super(allProjectsNameProvider, dbHandler, fsHandler, cacheHandler,
+    super(allProjectsNameProvider, allUsersNameProvider, dbHandler, fsHandler, cacheHandler,
         pcHandler, userProvider, pluginName, deleteLog, cfgFactory, hideProject);
   }
 
@@ -76,17 +78,17 @@ public class DeleteAction extends DeleteProject implements
     }
     return new UiAction.Description()
         .setLabel(replicated ? "Clean up..." : "Delete...")
-        .setTitle(isAllProjects(rsrc) ?
-            String.format("No deletion of %s project", allProjectsName) :
+        .setTitle(isAllNamedProject(rsrc) ?
+            String.format("No deletion of %s or %s project", allProjectsName, allUsersName) :
               String.format("%s%sproject %s",
                   (replicated? "Clean up":"Delete"), (replicated? " replicated ":" "),
                   rsrc.getName()))
-        .setEnabled(!isAllProjects(rsrc))
+        .setEnabled(!isAllNamedProject(rsrc))
         .setVisible(canDelete(rsrc));
   }
 
-  private boolean isAllProjects(ProjectResource rsrc) {
-    return (rsrc.getControl().getProject()
-        .getNameKey().equals(allProjectsName));
+  private boolean isAllNamedProject(ProjectResource rsrc) {
+    String currentProject = rsrc.getControl().getProject().getName();
+    return (currentProject.equals(allProjectsName)|| currentProject.equals(allUsersName));
   }
 }

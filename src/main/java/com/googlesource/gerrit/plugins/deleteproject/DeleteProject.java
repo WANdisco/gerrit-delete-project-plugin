@@ -10,7 +10,7 @@
  * Apache License, Version 2.0
  *
  ********************************************************************************/
- 
+
 // Copyright (C) 2013 The Android Open Source Project
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -46,6 +46,8 @@ import com.google.gerrit.server.query.change.ChangeData;
 import com.google.gerrit.server.account.CapabilityControl;
 import com.google.gerrit.server.config.AllProjectsName;
 import com.google.gerrit.server.config.AllProjectsNameProvider;
+import com.google.gerrit.server.config.AllUsersName;
+import com.google.gerrit.server.config.AllUsersNameProvider;
 import com.google.gerrit.server.config.PluginConfigFactory;
 import com.google.gerrit.server.project.ProjectResource;
 import com.google.gwtorm.server.OrmConcurrencyException;
@@ -89,6 +91,7 @@ class DeleteProject implements RestModifyView<ProjectResource, Input> {
   }
 
   protected final AllProjectsName allProjectsName;
+  protected final AllUsersName allUsersName;
   private final DatabaseDeleteHandler dbHandler;
   private final FilesystemDeleteHandler fsHandler;
   private final CacheDeleteHandler cacheHandler;
@@ -102,10 +105,12 @@ class DeleteProject implements RestModifyView<ProjectResource, Input> {
   final Logger log = LoggerFactory.getLogger(DeleteProject.class);
 
   @Inject
-  DeleteProject(AllProjectsNameProvider allProjectsNameProvider, DatabaseDeleteHandler dbHandler, FilesystemDeleteHandler fsHandler,
+  DeleteProject(AllProjectsNameProvider allProjectsNameProvider,AllUsersNameProvider allUsersNameProvider,
+      DatabaseDeleteHandler dbHandler, FilesystemDeleteHandler fsHandler,
       CacheDeleteHandler cacheHandler, ProjectConfigDeleteHandler pcHandler, Provider<CurrentUser> userProvider,
       @PluginName String pluginName, DeleteLog deleteLog, PluginConfigFactory cfgFactory, HideProject hideProject) {
     this.allProjectsName = allProjectsNameProvider.get();
+    this.allUsersName = allUsersNameProvider.get();
     this.dbHandler = dbHandler;
     this.fsHandler = fsHandler;
     this.cacheHandler = cacheHandler;
@@ -208,7 +213,7 @@ class DeleteProject implements RestModifyView<ProjectResource, Input> {
         projectName = project.getName();
       }
     }
-    
+
     if (port != null && !port.isEmpty()) {
       String taskIdForDelayedRemoval = "&taskIdForDelayedRemoval="+uuid;
       try {
@@ -314,7 +319,7 @@ class DeleteProject implements RestModifyView<ProjectResource, Input> {
 
     if (repoParentPath != null) {
       replicatedProperty = checkIfReplicated(repoParentPath, projectName + ".git");
-      
+
       // the project may not have a .git extension so try without it
       if (replicatedProperty == null) {
         replicatedProperty = checkIfReplicated(repoParentPath, projectName);
@@ -335,7 +340,7 @@ class DeleteProject implements RestModifyView<ProjectResource, Input> {
   public boolean isRepoReplicated(Project project) throws IOException {
     final Logger log = LoggerFactory.getLogger(DeleteProject.class);
     final String projectName = project.getName();
-    
+
     log.debug("Verifying if project: " + projectName + " is replicated.");
 
     boolean replicatedRepo = isRepoReplicated(projectName);
@@ -344,7 +349,7 @@ class DeleteProject implements RestModifyView<ProjectResource, Input> {
 
     return replicatedRepo;
   }
-  
+
   private final static String checkIfReplicated(final String repoParentPath, final String projectName) throws IOException {
     String replicatedProperty = null;
     String repoLocation = repoParentPath + "/" + projectName;
@@ -357,7 +362,7 @@ class DeleteProject implements RestModifyView<ProjectResource, Input> {
         replicatedProperty = getProperty(repoConfigFile, "replicated");
       }
     }
-    
+
     return replicatedProperty;
   }
 
