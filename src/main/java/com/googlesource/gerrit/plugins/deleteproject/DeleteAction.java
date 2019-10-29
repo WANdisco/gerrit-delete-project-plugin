@@ -14,6 +14,7 @@
 
 package com.googlesource.gerrit.plugins.deleteproject;
 
+import com.google.gerrit.common.ReplicatedProjectManager;
 import com.google.gerrit.extensions.webui.UiAction;
 import com.google.gerrit.server.CurrentUser;
 import com.google.gerrit.server.notedb.NotesMigration;
@@ -24,9 +25,14 @@ import com.googlesource.gerrit.plugins.deleteproject.cache.CacheDeleteHandler;
 import com.googlesource.gerrit.plugins.deleteproject.database.DatabaseDeleteHandler;
 import com.googlesource.gerrit.plugins.deleteproject.fs.FilesystemDeleteHandler;
 
-public class DeleteAction extends DeleteProject implements UiAction<ProjectResource> {
-  private final ProtectedProjects protectedProjects;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+
+public class DeleteAction extends DeleteProject implements
+    UiAction<ProjectResource> {
+  private final ProtectedProjects protectedProjects;
   @Inject
   DeleteAction(
       ProtectedProjects protectedProjects,
@@ -54,13 +60,22 @@ public class DeleteAction extends DeleteProject implements UiAction<ProjectResou
 
   @Override
   public UiAction.Description getDescription(ProjectResource rsrc) {
+    boolean replicated = true;
+    Logger log = LoggerFactory.getLogger(ReplicatedProjectManager.class);
+
+    try {
+      replicated = DeleteProject.isRepoReplicated(rsrc);
+    } catch (IOException e) {
+      log.error("Error accessing the project :", rsrc.getName(), " Error: ", e, " [ Assuming a replicated repo is in place. ]" );
+    }
     return new UiAction.Description()
-        .setLabel("Delete Project")
-        .setTitle(
-            protectedProjects.isProtected(rsrc)
-                ? String.format("Not allowed to delete %s", rsrc.getName())
-                : String.format("Delete project %s", rsrc.getName()))
-        .setEnabled(!protectedProjects.isProtected(rsrc))
-        .setVisible(preConditions.canDelete(rsrc));
+        .setLabel(replicated ? "Clean up..." : "Delete...")
+        .setTitle(isAllProjects(rsrc) ?
+            String.format("No deletion of %s project", allProjectsName) :
+              String.format("%s%sproject %s",
+                  (replicated? "Clean up":"Delete"), (replicated? " replicated ":" "),
+                  rsrc.getName()))
+        .setEnabled(!isAllProjects(rsrc))
+        .setVisible(canDelete(rsrc));
   }
 }
