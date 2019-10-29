@@ -14,7 +14,7 @@
 
 package com.googlesource.gerrit.plugins.deleteproject;
 
-import com.google.gerrit.common.ReplicatedProjectManager;
+import com.google.gerrit.server.replication.ReplicatedProjectManager;
 import com.google.gerrit.extensions.webui.UiAction;
 import com.google.gerrit.server.CurrentUser;
 import com.google.gerrit.server.notedb.NotesMigration;

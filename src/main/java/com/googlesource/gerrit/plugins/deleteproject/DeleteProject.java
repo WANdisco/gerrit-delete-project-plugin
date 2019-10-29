@@ -17,9 +17,8 @@ package com.googlesource.gerrit.plugins.deleteproject;
 import static com.googlesource.gerrit.plugins.deleteproject.DeleteOwnProjectCapability.DELETE_OWN_PROJECT;
 import static com.googlesource.gerrit.plugins.deleteproject.DeleteProjectCapability.DELETE_PROJECT;
 
-import com.google.gerrit.common.ReplicatedIndexEventManager;
-import com.google.gerrit.common.ReplicatedProjectManager;
-import com.google.gerrit.extensions.annotations.PluginName;
+import com.google.gerrit.server.replication.ReplicatedIndexEventManager;
+import com.google.gerrit.server.replication.ReplicatedProjectManager;
 import com.google.gerrit.extensions.restapi.AuthException;
 import com.google.gerrit.extensions.restapi.ResourceConflictException;
 import com.google.gerrit.extensions.restapi.ResourceNotFoundException;
@@ -41,7 +40,14 @@ import com.googlesource.gerrit.plugins.deleteproject.DeleteProject.Input;
 import com.googlesource.gerrit.plugins.deleteproject.cache.CacheDeleteHandler;
 import com.googlesource.gerrit.plugins.deleteproject.database.DatabaseDeleteHandler;
 import com.googlesource.gerrit.plugins.deleteproject.fs.FilesystemDeleteHandler;
+
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.util.*;
+
+import org.eclipse.jgit.errors.ConfigInvalidException;
 import org.eclipse.jgit.errors.RepositoryNotFoundException;
 import org.eclipse.jgit.storage.file.FileBasedConfig;
 import org.eclipse.jgit.util.FS;
@@ -55,7 +61,10 @@ class DeleteProject implements RestModifyView<ProjectResource, Input> {
     boolean preserve;
     boolean force;
   }
-
+  public Collection<String> getWarnings(ProjectResource rsrc)
+         ^
+  symbol:   class Collection
+  location: class DeleteProject
   protected final DeletePreconditions preConditions;
 
   private final DatabaseDeleteHandler dbHandler;
@@ -382,7 +391,7 @@ class DeleteProject implements RestModifyView<ProjectResource, Input> {
     log.debug("Cleaning up the replicated project: " + project.getName());
 
     String uuid = UUID.randomUUID().toString();
-    List<ChangeData> changes = new ArrayList<ChangeData>();
+    List<Change.Id> changeIds = new ArrayList<Change.Id>();
 
     try {
       if (!preserve || !cfgFactory.getFromGerritConfig(pluginName).getBoolean("hideProjectOnPreserve", false)) {
@@ -395,7 +404,7 @@ class DeleteProject implements RestModifyView<ProjectResource, Input> {
         }
 
         try {
-          changes = dbHandler.replicatedDeleteChanges(project);
+          changeIds = dbHandler.delete(project);
           log.info("Deletion of project {} from the database succeeded", project.getName());
         } catch(OrmConcurrencyException e) {
           log.error("Could not delete the project {}", project.getName(), e);
@@ -420,8 +429,8 @@ class DeleteProject implements RestModifyView<ProjectResource, Input> {
       }
 
       // Replicate the deletion of project changes
-      if (changes != null){
-        deleteProjectChanges(preserve, changes, project);
+      if (changeIds != null && !changeIds.isEmpty()){
+        deleteProjectChanges(preserve, changeIds, project);
       }
 
       // Replicate the project deletion (NOTE this is the project deletion within Gerrit, from the project cache)
@@ -443,19 +452,14 @@ class DeleteProject implements RestModifyView<ProjectResource, Input> {
    * @param changes
    * @throws IOException
    */
-  public void deleteProjectChanges(boolean preserve, List<ChangeData> changes, Project project) throws IOException{
+  public void deleteProjectChanges(boolean preserve, List<Change.Id> changes, Project project) throws IOException{
     log.info("About to call ReplicatedProjectManager.replicateProjectChangeDeletion(): {}, {}", project.getName(), preserve);
-    // Get the Change.Id from the ChangeData
-    List<Change.Id> changeIds = new ArrayList<>();
-    for (ChangeData cd: changes) {
-      changeIds.add(cd.getId());
-    }
 
     // Delete changes locally
-    ReplicatedIndexEventManager.getInstance().deleteChanges(changes);
+     ReplicatedIndexEventManager.getInstance().deleteChanges(changes);
 
     //Replicate changesToBeDeleted across the nodes
     String uuid = UUID.randomUUID().toString();
-    ReplicatedProjectManager.replicateProjectChangeDeletion(project, preserve, changeIds, uuid);
+    ReplicatedProjectManager.replicateProjectChangeDeletion(project, preserve, changes, uuid);
   }
 }
