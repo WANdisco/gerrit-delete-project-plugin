@@ -61,10 +61,7 @@ class DeleteProject implements RestModifyView<ProjectResource, Input> {
     boolean preserve;
     boolean force;
   }
-  public Collection<String> getWarnings(ProjectResource rsrc)
-         ^
-  symbol:   class Collection
-  location: class DeleteProject
+
   protected final DeletePreconditions preConditions;
 
   private final DatabaseDeleteHandler dbHandler;
@@ -118,6 +115,7 @@ class DeleteProject implements RestModifyView<ProjectResource, Input> {
   }
 
   protected boolean canDelete(ProjectResource rsrc) {
+
     CapabilityControl ctl = userProvider.get().getCapabilities();
     return ctl.canAdministrateServer()
         || ctl.canPerform(pluginName + "-" + DELETE_PROJECT)
