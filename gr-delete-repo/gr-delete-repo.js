@@ -14,20 +14,25 @@
 (function() {
   'use strict';
 
+  let checkIsReplicated = () => document.querySelector('gr-delete-repo').textContent.includes('replicated');
+
   Polymer({
+    //The 'is' property specifies a HTML tag name for the custom element
     is: 'gr-delete-repo',
 
     properties: {
-      repoName: String,
-      config: Object,
-      action: Object,
-      actionId: String,
+        repoName: String,
+        isReplicated: Boolean,
+        config: Object,
+        action: Object,
+        actionId: String,
     },
 
     attached() {
       this.actionId = this.plugin.getPluginName() + '~delete';
       this.action = this.config.actions[this.actionId];
       this.hidden = !this.action;
+      this.isReplicated = checkIsReplicated.call();
     },
 
     _handleCommandTap() {
@@ -43,10 +48,33 @@
           encodeURIComponent(this.repoName) + '/' +
           this.actionId;
 
-      const json = {
-        force: this.$.forceDeleteOpenChangesCheckBox.checked,
-        preserve: this.$.preserveGitRepoCheckBox.checked
-      };
+      //This is a json object. It is private to the _handleDeleteRepo function
+      //due to the scope chain.
+      let json = {};
+      if(this.isReplicated){
+          let e = document.getElementById("gitPreserveOptions");
+          let selectedOption = e.options[e.selectedIndex].value;
+
+          if(selectedOption === 'preserveDelete'){
+            json = {
+              force: this.$.forceDeleteOpenChangesCheckBox.checked,
+              preserve:true,
+            };
+          } else if (selectedOption === 'archiveAndRemove'){
+            json = {
+              force: this.$.forceDeleteOpenChangesCheckBox.checked,
+              preserve:false,
+            };
+            window.alert('The replicated project ' + this.repoName + ' was deleted: "');
+          }
+
+      } else {
+          //NON REPLICATED REPO PATH
+          json = {
+              force: this.$.forceDeleteOpenChangesCheckBox.checked,
+              preserve: this.$.preserveGitRepoCheckBox.checked
+          };
+      }
 
       const errFn = response => {
         this.fire('page-error', {response});
@@ -59,5 +87,6 @@
               Gerrit.Nav.navigateToRelativeUrl('/admin/repos');
       });
     },
-  });
+
+   });
 })();

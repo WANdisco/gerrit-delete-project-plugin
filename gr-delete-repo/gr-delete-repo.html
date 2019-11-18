@@ -29,9 +29,16 @@ limitations under the License.
           confirm-label="Delete"
           on-confirm="_handleDeleteRepo"
           on-cancel="_handleCloseDeleteRepo">
-        <div class="header" slot="header">
-          Are you really sure you want to delete the repo: "[[repoName]]"?
-        </div>
+          <template is="dom-if" if="[[isReplicated]]">
+              <div class="header" slot="header">
+                  Are you really sure you want to delete the replicated repo: "[[repoName]]"?
+              </div>
+          </template>
+          <template is="dom-if" if="[[!isReplicated]]">
+              <div class="header" slot="header">
+                  Are you really sure you want to delete the repo: "[[repoName]]"?
+              </div>
+          </template>
         <div class="main" slot="main">
           <div class="gr-form-styles">
             <div id="form">
@@ -42,10 +49,17 @@ limitations under the License.
                   <label for="forceDeleteOpenChangesCheckBox">Delete repo even if open changes exist?</label>
                 </section>
                 <section>
-                  <input
-                      type="checkbox"
-                      id="preserveGitRepoCheckBox">
-                  <label for="preserveGitRepoCheckBox">Preserve GIT Repository?</label>
+                  <template is="dom-if" if="[[isReplicated]]">
+                      <label>Preserve Options:</label>
+                      <select id = "gitPreserveOptions">
+                          <option value = "preserveDelete">Remove Gerrit project data (leave repository replicating in GitMS)</option>
+                          <option value = "archiveAndRemove">Remove Gerrit project data, remove from replication and archive repository</option>
+                      </select>
+                  </template>
+                  <template is="dom-if" if="[[!isReplicated]]">
+                      <input type="checkbox" id="preserveGitRepoCheckBox">
+                      <label for="preserveGitRepoCheckBox">Preserve GIT Repository?</label>
+                  </template>
                 </section>
             </div>
           </div>

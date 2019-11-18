@@ -20,7 +20,7 @@ gerrit_plugin(
     ],
     resource_jars = [":gr-delete-repo-static"],
     resources = glob(["src/main/resources/**/*"]),
-    deps = ["@commons-io//jar"],
+    deps = ["@commons-io//jar", "//java/com/google/gerrit/server"],
 )
 
 genrule2(

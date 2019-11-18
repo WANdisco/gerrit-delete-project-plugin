@@ -11,11 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package com.googlesource.gerrit.plugins.deleteproject.database;
 
 import static java.util.Collections.singleton;
 
-import com.google.common.collect.Lists;
 import com.google.common.flogger.FluentLogger;
 import com.google.gerrit.extensions.registration.DynamicItem;
 import com.google.gerrit.reviewdb.client.Account;
@@ -40,16 +40,13 @@ import com.google.gwtorm.server.OrmException;
 import com.google.gwtorm.server.ResultSet;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
-
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-
 import org.eclipse.jgit.errors.ConfigInvalidException;
 
 public class DatabaseDeleteHandler {
@@ -59,49 +56,35 @@ public class DatabaseDeleteHandler {
   private final StarredChangesUtil starredChangesUtil;
   private final DynamicItem<AccountPatchReviewStore> accountPatchReviewStore;
   private final ChangeIndexer indexer;
-  private final Provider<InternalChangeQuery> queryProvider;
   private final Provider<InternalAccountQuery> accountQueryProvider;
+  private final Provider<InternalChangeQuery> changeQueryProvider;
   private final Provider<AccountsUpdate> accountsUpdateProvider;
 
   @Inject
   public DatabaseDeleteHandler(
-      Provider<ReviewDb> dbProvider,
-      StarredChangesUtil starredChangesUtil,
-      DynamicItem<AccountPatchReviewStore> accountPatchReviewStore,
-      ChangeIndexer indexer,
-      Provider<InternalChangeQuery> queryProvider,
-      Provider<InternalAccountQuery> accountQueryProvider,
-      @UserInitiated Provider<AccountsUpdate> accountsUpdateProvider) {
+          Provider<ReviewDb> dbProvider,
+          StarredChangesUtil starredChangesUtil,
+          DynamicItem<AccountPatchReviewStore> accountPatchReviewStore,
+          ChangeIndexer indexer,
+          Provider<InternalAccountQuery> accountQueryProvider,
+          Provider<InternalChangeQuery> changeQueryProvider, @UserInitiated Provider<AccountsUpdate> accountsUpdateProvider) {
     this.dbProvider = dbProvider;
     this.starredChangesUtil = starredChangesUtil;
     this.accountPatchReviewStore = accountPatchReviewStore;
     this.indexer = indexer;
     this.accountQueryProvider = accountQueryProvider;
+    this.changeQueryProvider = changeQueryProvider;
     this.accountsUpdateProvider = accountsUpdateProvider;
-    this.queryProvider = queryProvider;
   }
 
-  public Collection<String> getWarnings(Project project) throws OrmException {
-    Collection<String> ret = Lists.newArrayList();
-    // Warn against open changes
-    List<ChangeData> openChanges =
-        queryProvider.get().byProjectOpen(project.getNameKey());
-    if (openChanges.iterator().hasNext()) {
-      ret.add(project.getName() + " has open changes");
-    }
-    return ret;
-  }
-
-  public List<Change.Id> delete(Project project) throws OrmException {
+  public void delete(Project project) throws OrmException {
     ReviewDb db = ReviewDbUtil.unwrapDb(dbProvider.get());
     Connection conn = ((JdbcSchema) db).getConnection();
     try {
       conn.setAutoCommit(false);
       try {
-        List<Change.Id> changeIds = getChangesList(project, conn);
-        atomicDelete(db, project, changeIds);
+        atomicDelete(db, project, getChangesList(project, conn));
         conn.commit();
-        return changeIds;
       } finally {
         conn.setAutoCommit(true);
       }
@@ -117,7 +100,7 @@ public class DatabaseDeleteHandler {
 
   private List<Change.Id> getChangesList(Project project, Connection conn) throws SQLException {
     try (PreparedStatement changesForProject =
-             conn.prepareStatement("SELECT change_id FROM changes WHERE dest_project_name = ?")) {
+        conn.prepareStatement("SELECT change_id FROM changes WHERE dest_project_name = ?")) {
       changesForProject.setString(1, project.getName());
       try (java.sql.ResultSet resultSet = changesForProject.executeQuery()) {
         List<Change.Id> changeIds = new ArrayList<>();
@@ -144,19 +127,48 @@ public class DatabaseDeleteHandler {
       if (patchSets != null) {
         deleteFromPatchSets(db, patchSets);
       }
+
       // In the future, use schemaVersion to decide what to delete.
       db.patchComments().delete(db.patchComments().byChange(id));
       db.patchSetApprovals().delete(db.patchSetApprovals().byChange(id));
 
       db.changeMessages().delete(db.changeMessages().byChange(id));
       db.changes().deleteKeys(Collections.singleton(id));
-      // TODO Check deleteKeys is correct and enough!!
-//      db.changes().delete(Collections.singleton(cd.change()));
+
       // Delete from the secondary index
       try {
         indexer.delete(id);
       } catch (IOException e) {
         log.atSevere().withCause(e).log("Failed to delete change %s from index", id);
+      }
+    }
+  }
+
+  private final void deleteChangeData(List<ChangeData> changeData)
+          throws OrmException {
+    ReviewDb db = ReviewDbUtil.unwrapDb(dbProvider.get());
+    for (ChangeData cd : changeData) {
+      Change.Id id = cd.getId();
+      ResultSet<PatchSet> patchSets = null;
+      patchSets = db.patchSets().byChange(id);
+      if (patchSets != null) {
+        deleteFromPatchSets(db, patchSets);
+      }
+      // In the future, use schemaVersion to decide what to delete.
+      db.patchComments().delete(db.patchComments().byChange(id));
+      db.patchSetApprovals().delete(db.patchSetApprovals().byChange(id));
+      try {
+        starredChangesUtil.unstarAll(cd.project(), id);
+      } catch (NoSuchChangeException e) {
+        // we can ignore the exception during delete
+      }
+      db.changeMessages().delete(db.changeMessages().byChange(id));
+      db.changes().delete(Collections.singleton(cd.change()));
+      // Delete from the secondary index
+      try {
+        indexer.delete(id);
+      } catch (IOException e) {
+        log.atSevere().log(String.format("Failed to delete change %s from index", id), e);
       }
     }
   }
@@ -168,7 +180,7 @@ public class DatabaseDeleteHandler {
     }
   }
 
-  public void atomicDelete(ReviewDb db, Project project, final List<Change.Id> changeIds)
+  public void atomicDelete(ReviewDb db, Project project, List<Change.Id> changeIds)
       throws OrmException {
 
     deleteChanges(db, project.getNameKey(), changeIds);
@@ -192,5 +204,29 @@ public class DatabaseDeleteHandler {
         }
       }
     }
+  }
+
+  public List<ChangeData> replicatedDeleteChanges(Project project) throws OrmException {
+    ReviewDb db = ReviewDbUtil.unwrapDb(dbProvider.get());
+    // http://docs.oracle.com/javase/specs/jls/se7/html/jls-14.html#jls-14.20.3.2
+    Connection conn = ((JdbcSchema) db).getConnection();
+    List<ChangeData> changes = null;
+    try {
+      conn.setAutoCommit(false);
+      try {
+        atomicDelete(db, project, getChangesList(project, conn));
+      } finally {
+        conn.setAutoCommit(true);
+      }
+    } catch (SQLException e) {
+      try {
+        conn.rollback();
+      } catch (SQLException ex) {
+        throw new OrmException(ex);
+      }
+      throw new OrmException(e);
+    }
+
+    return changes;
   }
 }

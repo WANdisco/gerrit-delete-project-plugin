@@ -61,7 +61,7 @@ public class FilesystemDeleteHandler {
   public void deleteFromCache(Project project) throws RepositoryNotFoundException, IOException{
     // Remove from the jgit cache
     Repository repository =
-        repoManager.openRepository(project.getNameKey());
+            repoManager.openRepository(project.getNameKey());
     cleanCache(repository);
   }
 
