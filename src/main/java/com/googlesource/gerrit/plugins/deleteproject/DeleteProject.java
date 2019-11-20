@@ -15,7 +15,6 @@
 package com.googlesource.gerrit.plugins.deleteproject;
 
 import com.google.common.flogger.FluentLogger;
-import com.google.gerrit.extensions.restapi.ResourceConflictException;
 import com.google.gerrit.extensions.restapi.ResourceNotFoundException;
 import com.google.gerrit.extensions.restapi.Response;
 import com.google.gerrit.extensions.restapi.RestApiException;
@@ -27,6 +26,7 @@ import com.google.gerrit.server.IdentifiedUser;
 import com.google.gerrit.server.notedb.NotesMigration;
 import com.google.gerrit.server.project.ProjectResource;
 import com.google.gerrit.server.query.change.ChangeData;
+import com.google.gerrit.server.replication.*;
 import com.google.gwtorm.server.OrmConcurrencyException;
 import com.google.gwtorm.server.OrmException;
 import com.google.inject.Inject;
@@ -43,9 +43,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
-import java.net.ProtocolException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -415,7 +413,7 @@ class DeleteProject implements RestModifyView<ProjectResource, Input> {
     }
 
     // Delete changes locally
-    ReplicatedIndexEventManager.getInstance().deleteChanges(changes);
+    ReplicatedIndexEventManager.getInstance().deleteChanges(changeIds);
 
     //Replicate changesToBeDeleted across the nodes
     String uuid = UUID.randomUUID().toString();

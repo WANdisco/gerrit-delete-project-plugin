@@ -1,11 +1,6 @@
 load("@rules_java//java:defs.bzl", "java_library")
 load("//tools/bzl:junit.bzl", "junit_tests")
-load(
-    "//tools/bzl:plugin.bzl",
-    "PLUGIN_DEPS",
-    "PLUGIN_TEST_DEPS",
-    "gerrit_plugin",
-)
+load("//tools/bzl:plugin.bzl","PLUGIN_DEPS","PLUGIN_TEST_DEPS","gerrit_plugin")
 load("//tools/bzl:genrule2.bzl", "genrule2")
 load("//tools/bzl:js.bzl", "polygerrit_plugin")
 
@@ -19,8 +14,9 @@ gerrit_plugin(
         "Gerrit-SshModule: com.googlesource.gerrit.plugins.deleteproject.SshModule",
     ],
     resource_jars = [":gr-delete-repo-static"],
-    resources = glob(["src/main/resources/**/*"]),
-    deps = ["@commons-io//jar", "//java/com/google/gerrit/server"],
+    deps = [
+            "//lib/commons:io",
+        ],
 )
 
 genrule2(
