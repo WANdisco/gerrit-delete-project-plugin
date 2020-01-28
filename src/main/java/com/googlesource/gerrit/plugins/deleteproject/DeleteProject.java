@@ -37,28 +37,28 @@ import com.googlesource.gerrit.plugins.deleteproject.cache.CacheDeleteHandler;
 import com.googlesource.gerrit.plugins.deleteproject.database.DatabaseDeleteHandler;
 import com.googlesource.gerrit.plugins.deleteproject.fs.FilesystemDeleteHandler;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URL;
-import java.net.URLEncoder;
+import java.net.URLDecoder;
+import java.security.InvalidParameterException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 import java.util.UUID;
 
-import org.apache.http.client.utils.URIBuilder;
+import com.wandisco.gerrit.gitms.shared.api.ApiResponse;
+import com.wandisco.gerrit.gitms.shared.api.HttpRequestBuilder;
+import com.wandisco.gerrit.gitms.shared.properties.GitMsApplicationProperties;
 import org.eclipse.jgit.errors.ConfigInvalidException;
 import org.eclipse.jgit.errors.RepositoryNotFoundException;
 import org.eclipse.jgit.storage.file.FileBasedConfig;
 import org.eclipse.jgit.util.FS;
 import org.eclipse.jgit.util.StringUtils;
+
+import static com.wandisco.gerrit.gitms.shared.api.HttpRequestBuilder.WebRequestType.DELETE;
 
 @Singleton
 class DeleteProject implements RestModifyView<ProjectResource, Input> {
@@ -67,6 +67,10 @@ class DeleteProject implements RestModifyView<ProjectResource, Input> {
     boolean preserve;
     boolean force;
   }
+
+  private final HttpRequestBuilder requestBuilder;
+  private final String deleteEndpoint = "/gerrit/delete";
+  private GitMsApplicationProperties gitMsApplicationProperties = null;
 
   protected final DeletePreconditions preConditions;
 
@@ -89,7 +93,7 @@ class DeleteProject implements RestModifyView<ProjectResource, Input> {
       DeletePreconditions preConditions,
       Configuration cfg,
       HideProject hideProject,
-      NotesMigration migration) {
+      NotesMigration migration) throws IOException {
     this.dbHandler = dbHandler;
     this.fsHandler = fsHandler;
     this.cacheHandler = cacheHandler;
@@ -99,6 +103,14 @@ class DeleteProject implements RestModifyView<ProjectResource, Input> {
     this.cfg = cfg;
     this.hideProject = hideProject;
     this.migration = migration;
+
+    if (gitMsApplicationProperties == null) {
+      gitMsApplicationProperties = new GitMsApplicationProperties();
+    }
+
+    final String host = gitMsApplicationProperties.getGitMSLocalJettyHost();
+    final int port = Integer.valueOf(gitMsApplicationProperties.getGitMSLocalJettyPort());
+    requestBuilder = setupHttpRequest(host, port, deleteEndpoint);
   }
 
   @Override
@@ -207,9 +219,9 @@ class DeleteProject implements RestModifyView<ProjectResource, Input> {
   }
 
   public boolean isRepoReplicated(Project project) throws IOException {
-    log.atFine().log("Verifying if project: {} is replicated.", project.getName());
+    log.atFine().log("Verifying if project: %s is replicated.", project.getName());
     boolean replicatedRepo = isRepoReplicated(project.getName());
-    log.atFine().log("Replicated property: {}", replicatedRepo);
+    log.atFine().log("Replicated property: %s", replicatedRepo);
     return replicatedRepo;
   }
 
@@ -251,25 +263,27 @@ class DeleteProject implements RestModifyView<ProjectResource, Input> {
     return replicatedRepo;
   }
 
-  private HttpURLConnection gitmsDeleteRequest(String repoPath, String projectName, String port, String taskIdForDelayedRemoval)
-          throws IOException, URISyntaxException {
 
-    repoPath = URLEncoder.encode(repoPath + "/" + projectName, "UTF-8");
-    String gitmsDeleteEndpoint = String.format("/gerrit/delete?repoPath=%s%s", repoPath, taskIdForDelayedRemoval);
+  /*
+   * Creates a HTTP request object with the desired request type as DELETE.
+   */
+  private static HttpRequestBuilder setupHttpRequest(final String host, final int port, final String endpoint) {
+    HttpRequestBuilder request
+        = new HttpRequestBuilder(
+            host,
+            port,
+            endpoint);
 
-    URI builder = new URIBuilder().setScheme("http").setHost("127.0.0.1").setPort(Integer.parseInt(port)).setPath(gitmsDeleteEndpoint).build();
-    URL url = builder.toURL();
-
-    log.atInfo().log("Calling URL {}...", url);
-    HttpURLConnection httpCon = (HttpURLConnection) url.openConnection();
-    httpCon.setDoOutput(true);
-    httpCon.setUseCaches(false);
-    httpCon.setRequestMethod("DELETE");
-    httpCon.setRequestProperty("Content-Type", "application/xml");
-    httpCon.setRequestProperty("Accept", "application/xml");
-    return httpCon;
+    // Update to use DELETE instead of POST which is default.
+    request.setRequestType(DELETE);
+    return request;
   }
 
+
+  /*
+   * The user wants to completely remove the project from Gerrit, GitMS and on disk
+   * The repository will be archived
+   */
   public void archiveAndRemoveRepo(Project project, String uuid) throws IOException {
     // get the GitMS config file
     FileBasedConfig config = getConfigFile();
@@ -297,36 +311,62 @@ class DeleteProject implements RestModifyView<ProjectResource, Input> {
     }
 
     if (port != null && !port.isEmpty()) {
-      String taskIdForDelayedRemoval = "&taskIdForDelayedRemoval="+uuid;
       try {
-        HttpURLConnection httpURLConnection = gitmsDeleteRequest(repoPath, projectName, port, taskIdForDelayedRemoval);
-
-        //an error may have happened, and if it did, the errorstream will be available
-        //to get more details - but if repo deletion was successful, getErrorStream
-        //will be null
-        StringBuilder responseString = new StringBuilder();
-        if (httpURLConnection.getErrorStream() != null) {
-          try (BufferedReader reader = new BufferedReader(new InputStreamReader(httpURLConnection.getErrorStream()))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-              responseString.append(line).append("\n");
-            }
-          }
-        }
-        httpURLConnection.disconnect();
-
-        int responseCode = httpURLConnection.getResponseCode();
-        if (responseCode != 202 && responseCode != 200) {
-          //there has been a problem with the deletion
-          throw new IOException(String.format("Failure to delete the git repository on the GitMS Replicator, " +
-                  "response code: %s, Replicator response was: %s", responseCode, responseString.toString()));
-        }
-      } catch (IOException | URISyntaxException e) {
+        log.atInfo().log("Calling URL %s ...",
+            URLDecoder.decode(requestBuilder.getBaseRequestURI().build().toURL().toString()));
+        makeGitmsDeleteRequest(uuid, projectPath.toString());
+      } catch (IOException e) {
         IOException ee = new IOException("Error with deleting repo: " + e.toString());
         ee.initCause(e);
-        log.atSevere().log("Error with deleting repo: {}", repoPath, ee);
+        log.atSevere().log("Error with deleting repo: %s", projectPath.toString(), ee);
         throw ee;
+      } catch (URISyntaxException e) {
+        log.atSevere().log("Error with deleting repo: %s", projectPath.toString(), e);
       }
+    }
+  }
+
+
+  /*
+   * Request parameters appended onto the delete request of the form
+   * /gerrit/delete?repoPath=/path/to/repo.git&taskIdForDelayedRemoval=1234
+   */
+  private void setRequestParameters(String repoPath, String uuid) {
+    if(StringUtils.isEmptyOrNull(repoPath)){
+      throw new InvalidParameterException("Delete-Project DELETE request requires field " +
+          "'repoPath' to be specified with a valid path of a repository to be deleted");
+    }
+
+    if(StringUtils.isEmptyOrNull(uuid)){
+      throw new InvalidParameterException("Delete-Project DELETE request requires field " +
+          "'taskIdForDelayedRemoval' to be specified with a UUID");
+    }
+
+    requestBuilder.setRequestParameter("repoPath", repoPath);
+    requestBuilder.setRequestParameter("taskIdForDelayedRemoval", uuid);
+  }
+
+
+  /*
+   * Makes the request to GitMS /gerrit/delete endpoint for the
+   * repository path to be deleted.
+   */
+  private void makeGitmsDeleteRequest(String uuid, String repoPath) throws IOException {
+
+    //Set the parameters for the request if they are valid.
+    setRequestParameters(repoPath, uuid);
+
+    ApiResponse response = requestBuilder.makeRequest();
+
+    log.atInfo().log("Made the following request [ %s %s ] ",
+        requestBuilder.getRequest().getMethod(),
+        URLDecoder.decode(requestBuilder.getRequest().getURI().toURL().toString()));
+
+
+    if (response.statusCode != 202 && response.statusCode != 200) {
+      //there has been a problem with the deletion
+      throw new IOException(String.format("Failure to delete the git repository on the GitMS Replicator, " +
+              "response code: %s, Replicator response was: %s", response, response.response));
     }
   }
 
@@ -336,31 +376,37 @@ class DeleteProject implements RestModifyView<ProjectResource, Input> {
    * There are 2 paths that can be taken..
    * 1. The user only wants to remove the projects metadata, but leave the project replicating in Gerrit and GitMS
    * 2. The user wants to completely remove the project from Gerrit, GitMS and on disk
+   * Consult README.md for further information.
    */
   public void deleteReplicatedRepo(ProjectResource rsrc, Input input, Project project, boolean preserve)
           throws OrmException, IOException, RestApiException {
 
     Exception ex = null;
-    log.atFine().log("Deleting the replicated project: {}", project.getName());
+    log.atFine().log("Deleting the replicated project: %s", project.getName());
 
     String uuid = UUID.randomUUID().toString();
-    List<ChangeData> changes = new ArrayList<ChangeData>();
+    List<Change.Id> changeIds = new ArrayList<>();
 
     try {
       if (!preserve || !cfg.projectOnPreserveHidden()) {
-        log.atInfo().log("Preserve flag is set to: {}", preserve);
+        log.atInfo().log("Preserve flag is set to: %s", preserve);
 
         // Archive repo before we attempt to delete
         // The Repo only needs to be archived and removed from GITMS, if the "preserve" flag is not selected.
+
+        //When preserve is false Remove Gerrit project data, remove from replication and archive repository
+        //The project and all associated changes, reviews etc will be removed from Gerrit, the repo will be removed
+        //from replication in GitMS and will no longer exist on disk.
+        //However, before removal a zipped version of the repo will be archived to the directory specified during install.
         if(!preserve){
           archiveAndRemoveRepo(project, uuid);
         }
 
         try {
-          changes = dbHandler.replicatedDeleteChanges(project);
-          log.atInfo().log("Deletion of project {} from the database succeeded", project.getName());
+          changeIds = dbHandler.replicatedDeleteChanges(project);
+          log.atInfo().log("Deletion of project %s from the database succeeded", project.getName());
         } catch(OrmConcurrencyException e) {
-          log.atSevere().log("Could not delete the project {}", project.getName(), e);
+          log.atSevere().log("Could not delete the project %s", project.getName(), e);
           throw e;
         }
 
@@ -369,11 +415,11 @@ class DeleteProject implements RestModifyView<ProjectResource, Input> {
           // But we still need to remove from the jgit cache
           fsHandler.deleteFromCache(project);
         } catch (RepositoryNotFoundException e) {
-          log.atSevere().log("Could not find the project {}", project.getName(), e);
+          log.atSevere().log("Could not find the project %s", project.getName(), e);
           throw e;
         }
 
-        // We also only remove it from the project list and local cache if the "preserve" flag is not selected.
+        // We also only remove it from the project list and local cache if the "preserve" flag is not selected, i.e false
         if(!preserve){
           cacheHandler.delete(project);
         }
@@ -382,12 +428,12 @@ class DeleteProject implements RestModifyView<ProjectResource, Input> {
       }
 
       // Replicate the deletion of project changes
-      if (changes != null){
-        deleteProjectChanges(preserve, changes, project);
+      if (changeIds != null){
+        deleteProjectChanges(preserve, changeIds, project);
       }
 
       // Replicate the project deletion (NOTE this is the project deletion within Gerrit, from the project cache)
-      log.atInfo().log("About to call ReplicatedProjectManager.replicateProjectDeletion(): {}, {}", project.getName(), preserve);
+      log.atInfo().log("About to call ReplicatedProjectManager.replicateProjectDeletion(): %s, %s", project.getName(), preserve);
       ReplicatedProjectManager.replicateProjectDeletion(project.getName(), preserve, uuid);
 
     } catch (Exception e) {
@@ -401,16 +447,11 @@ class DeleteProject implements RestModifyView<ProjectResource, Input> {
   /**
    * Replicate the call to delete the project changes.
    * @param preserve
-   * @param changes
+   * @param changeIds
    * @throws IOException
    */
-  public void deleteProjectChanges(boolean preserve, List<ChangeData> changes, Project project) throws IOException{
-    log.atInfo().log("About to call ReplicatedProjectManager.replicateProjectChangeDeletion(): {}, {}", project.getName(), preserve);
-    // Get the Change.Id from the ChangeData
-    List<Change.Id> changeIds = new ArrayList<>();
-    for (ChangeData cd: changes) {
-      changeIds.add(cd.getId());
-    }
+  public void deleteProjectChanges(boolean preserve, List<Change.Id> changeIds, Project project) throws IOException{
+    log.atInfo().log("About to call ReplicatedProjectManager.replicateProjectChangeDeletion(): %s, %s", project.getName(), preserve);
 
     // Delete changes locally
     ReplicatedIndexEventManager.getInstance().deleteChanges(changeIds);

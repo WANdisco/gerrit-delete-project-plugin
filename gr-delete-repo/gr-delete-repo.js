@@ -26,6 +26,7 @@
         config: Object,
         action: Object,
         actionId: String,
+        json: Object,
     },
 
     attached() {
@@ -33,6 +34,7 @@
       this.action = this.config.actions[this.actionId];
       this.hidden = !this.action;
       this.isReplicated = checkIsReplicated.call();
+      this.json={};
     },
 
     _handleCommandTap() {
@@ -50,27 +52,24 @@
 
       //This is a json object. It is private to the _handleDeleteRepo function
       //due to the scope chain.
-      let json = {};
       if(this.isReplicated){
           let e = document.getElementById("gitPreserveOptions");
           let selectedOption = e.options[e.selectedIndex].value;
 
           if(selectedOption === 'preserveDelete'){
-            json = {
+            this.json = {
               force: this.$.forceDeleteOpenChangesCheckBox.checked,
               preserve:true,
             };
           } else if (selectedOption === 'archiveAndRemove'){
-            json = {
+            this.json = {
               force: this.$.forceDeleteOpenChangesCheckBox.checked,
               preserve:false,
             };
-            window.alert('The replicated project ' + this.repoName + ' was deleted: "');
           }
-
       } else {
           //NON REPLICATED REPO PATH
-          json = {
+          this.json = {
               force: this.$.forceDeleteOpenChangesCheckBox.checked,
               preserve: this.$.preserveGitRepoCheckBox.checked
           };
@@ -81,9 +80,26 @@
       };
 
       return this.plugin.restApi().send(
-          this.action.method, endpoint, json, errFn)
+          this.action.method, endpoint, this.json, errFn)
             .then(r => {
               this.plugin.restApi().invalidateReposCache();
+              if(this.isReplicated){
+
+                if(this.json["preserve"] == false){
+                   window.alert('The replicated project ' + this.repoName + ' was deleted "');
+                } else {
+                   window.alert('The replicated project ' + this.repoName + ' was cleaned up "');
+                }
+
+              } else {
+
+                if(this.json["preserve"] == false){
+                   window.alert('The project ' + this.repoName + ' was deleted "');
+                } else {
+                   window.alert('The project ' + this.repoName + ' was cleaned up "');
+                }
+
+              }
               Gerrit.Nav.navigateToRelativeUrl('/admin/repos');
       });
     },

@@ -40,7 +40,7 @@ public class DeleteAction extends DeleteProject implements UiAction<ProjectResou
       DeletePreconditions preConditions,
       Configuration cfg,
       HideProject hideProject,
-      NotesMigration migration) {
+      NotesMigration migration) throws IOException {
     super(
         dbHandler,
         fsHandler,

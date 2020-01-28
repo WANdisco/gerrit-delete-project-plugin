@@ -206,15 +206,18 @@ public class DatabaseDeleteHandler {
     }
   }
 
-  public List<ChangeData> replicatedDeleteChanges(Project project) throws OrmException {
+  public List<Change.Id> replicatedDeleteChanges(Project project) throws OrmException {
     ReviewDb db = ReviewDbUtil.unwrapDb(dbProvider.get());
     // http://docs.oracle.com/javase/specs/jls/se7/html/jls-14.html#jls-14.20.3.2
     Connection conn = ((JdbcSchema) db).getConnection();
-    List<ChangeData> changes = null;
+    List<Change.Id> changes;
     try {
       conn.setAutoCommit(false);
       try {
-        atomicDelete(db, project, getChangesList(project, conn));
+        //Need to populate the list of changes here to return to the calling method
+        //in DeleteProject as the changes list needs to be passed to the replicated call.
+        changes = getChangesList(project, conn);
+        atomicDelete(db, project, changes);
       } finally {
         conn.setAutoCommit(true);
       }
@@ -226,7 +229,6 @@ public class DatabaseDeleteHandler {
       }
       throw new OrmException(e);
     }
-
     return changes;
   }
 }

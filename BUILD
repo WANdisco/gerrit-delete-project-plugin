@@ -16,6 +16,7 @@ gerrit_plugin(
     resource_jars = [":gr-delete-repo-static"],
     deps = [
             "//lib/commons:io",
+            "//lib/wandisco:gerrit-gitms-interface"
         ],
 )
 
