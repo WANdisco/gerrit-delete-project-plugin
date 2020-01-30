@@ -74,4 +74,4 @@ Deletion failure creates a file in the repository (WD_GitMS_CRITICAL_README) and
 
 
 [![Build Status](https://gerrit-ci.gerritforge.com/view/Plugins-stable-2.16/job/plugin-delete-project-bazel-stable-2.16/badge/icon
-)](https://gerrit-ci.gerritforge.com/view/Plugins-stable-2.16/job/plugin-delete-project-bazel-stable-2.16/)
+)](https://gerrit-ci.gerritforge.com/view/Plugins-stable-2.16/job/plugin-delete-project-bazel-stable-2.16/) 
