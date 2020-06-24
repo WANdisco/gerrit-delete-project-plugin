@@ -44,7 +44,7 @@ polygerrit_plugin(
 junit_tests(
     name = "delete-project_tests",
     srcs = glob(["src/test/java/**/*.java"]),
-    tags = ["delete-project"],
+    tags = ["delete-project", "disabled"],
     deps = [":delete-project__plugin_test_deps"],
 )
 
