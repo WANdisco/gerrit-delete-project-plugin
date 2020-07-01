@@ -25,7 +25,6 @@ import com.google.gerrit.server.CurrentUser;
 import com.google.gerrit.server.IdentifiedUser;
 import com.google.gerrit.server.notedb.NotesMigration;
 import com.google.gerrit.server.project.ProjectResource;
-import com.google.gerrit.server.query.change.ChangeData;
 import com.google.gerrit.server.replication.*;
 import com.google.gwtorm.server.OrmConcurrencyException;
 import com.google.gwtorm.server.OrmException;
@@ -403,7 +402,7 @@ class DeleteProject implements RestModifyView<ProjectResource, Input> {
         }
 
         try {
-          changeIds = dbHandler.replicatedDeleteChanges(project);
+          changeIds = dbHandler.getReplicatedDeleteChangeIdsList(project);
           log.atInfo().log("Deletion of project %s from the database succeeded", project.getName());
         } catch(OrmConcurrencyException e) {
           log.atSevere().log("Could not delete the project %s", project.getName(), e);
