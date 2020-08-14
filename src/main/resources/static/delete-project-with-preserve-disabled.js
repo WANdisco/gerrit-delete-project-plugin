@@ -12,31 +12,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-if (!window.Polymer) {
-  Gerrit.install(function(self) {
-      function onDeleteProject(c) {
-        var f = c.checkbox();
-        var b = c.button('Delete',
-          {onclick: function(){
-            c.call(
-              {force: f.checked, preserve: false},
-              function(r) {
-                c.hide();
-                window.alert('The project: "'
-                  + c.project
-                  + '" was deleted.'),
-                Gerrit.go('/admin/projects/');
-              });
-          }});
-        c.popup(c.div(
-          c.msg('Are you really sure you want to delete the project: "'
-            + c.project
-            + '"?'),
-          c.br(),
-          c.label(f, 'Delete project even if open changes exist?'),
-          c.br(),
-          b));
-      }
-      self.onAction('project', 'delete', onDeleteProject);
-    });
-}
+Gerrit.install(function(self) {
+  if (window.Polymer) { return; }
+
+  function onDeleteProject(c) {
+    var f = c.checkbox();
+    var b = c.button('Delete',
+      {onclick: function(){
+        c.call(
+          {force: f.checked, preserve: false},
+          function(r) {
+            c.hide();
+            window.alert('The project: "'
+              + c.project
+              + '" was deleted.'),
+            Gerrit.go('/admin/projects/');
+          });
+      }});
+    c.popup(c.div(
+      c.msg('Are you really sure you want to delete the project: "'
+        + c.project
+        + '"?'),
+      c.br(),
+      c.label(f, 'Delete project even if open changes exist?'),
+      c.br(),
+      b));
+  }
+  self.onAction('project', 'delete', onDeleteProject);
+});

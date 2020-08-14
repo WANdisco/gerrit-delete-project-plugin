@@ -34,6 +34,7 @@ import com.google.gerrit.server.change.AccountPatchReviewStore;
 import com.google.gerrit.server.git.GitRepositoryManager;
 import com.google.gerrit.server.index.change.ChangeIndexer;
 import com.google.gerrit.server.notedb.ChangeNotes;
+import com.google.gerrit.server.notedb.ChangeNotes.Factory.ChangeNotesResult;
 import com.google.gerrit.server.notedb.NotesMigration;
 import com.google.gerrit.server.project.NoSuchChangeException;
 import com.google.gerrit.server.query.account.InternalAccountQuery;
@@ -87,7 +88,6 @@ public class DatabaseDeleteHandler {
     this.migration = migration;
   }
 
-
   public void delete(Project project) throws OrmException, IOException {
     ReviewDb db = ReviewDbUtil.unwrapDb(dbProvider.get());
     if (isReviewDb()) {
@@ -138,14 +138,13 @@ public class DatabaseDeleteHandler {
     List<Change.Id> changeIds =
         schemaFactoryNoteDb
             .scan(repoManager.openRepository(projectKey), dbProvider.get(), projectKey)
-            .map(ChangeNotes.Factory.ChangeNotesResult::id)
+            .map(ChangeNotesResult::id)
             .collect(toList());
     log.atFine().log(
         "Number of changes in noteDb related to project %s are %d",
         projectKey.get(), changeIds.size());
     return changeIds;
   }
-
 
   private void deleteChanges(ReviewDb db, Project.NameKey project, List<Change.Id> changeIds)
       throws OrmException {
@@ -160,9 +159,11 @@ public class DatabaseDeleteHandler {
         if (patchSets != null) {
           deleteFromPatchSets(db, patchSets);
         }
+
         // In the future, use schemaVersion to decide what to delete.
         db.patchComments().delete(db.patchComments().byChange(id));
         db.patchSetApprovals().delete(db.patchSetApprovals().byChange(id));
+
         db.changeMessages().delete(db.changeMessages().byChange(id));
         db.changes().deleteKeys(Collections.singleton(id));
       }

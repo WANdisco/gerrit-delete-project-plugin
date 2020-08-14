@@ -3,7 +3,7 @@ workspace(name = "delete_project")
 load("//:bazlets.bzl", "load_bazlets")
 
 load_bazlets(
-    commit = "f2865e0c8cab99715851f84ffa298c97957fff35",
+    commit = "fff6f20bb2eceaf872a8acf8ad51471c25a82d38",
     #local_path = "/home/<user>/projects/bazlets",
 )
 
@@ -16,9 +16,11 @@ load(
 gerrit_polymer()
 
 # Load closure compiler with transitive dependencies
-load("@io_bazel_rules_closure//closure:defs.bzl", "closure_repositories")
+load("@io_bazel_rules_closure//closure:repositories.bzl", "rules_closure_dependencies", "rules_closure_toolchains")
 
-closure_repositories()
+rules_closure_dependencies()
+
+rules_closure_toolchains()
 
 # Load Gerrit npm_binary toolchain
 load("@com_googlesource_gerrit_bazlets//tools:js.bzl", "GERRIT", "npm_binary")
