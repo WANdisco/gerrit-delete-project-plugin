@@ -89,7 +89,7 @@ class DeleteProject implements RestModifyView<ProjectResource, Input> {
       DeleteLog deleteLog,
       DeletePreconditions preConditions,
       Configuration cfg,
-      HideProject hideProject) {
+      HideProject hideProject) throws IOException {
     this.dbHandler = dbHandler;
     this.fsHandler = fsHandler;
     this.cacheHandler = cacheHandler;
