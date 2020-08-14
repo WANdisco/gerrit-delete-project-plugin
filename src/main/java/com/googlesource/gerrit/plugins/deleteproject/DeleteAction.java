@@ -38,7 +38,7 @@ public class DeleteAction extends DeleteProject implements UiAction<ProjectResou
       DeleteLog deleteLog,
       DeletePreconditions preConditions,
       Configuration cfg,
-      HideProject hideProject) {
+      HideProject hideProject) throws IOException {
     super(
         dbHandler,
         fsHandler,
