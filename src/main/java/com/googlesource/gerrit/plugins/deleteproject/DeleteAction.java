@@ -22,6 +22,7 @@ import com.google.inject.Provider;
 import com.googlesource.gerrit.plugins.deleteproject.cache.CacheDeleteHandler;
 import com.googlesource.gerrit.plugins.deleteproject.database.DatabaseDeleteHandler;
 import com.googlesource.gerrit.plugins.deleteproject.fs.FilesystemDeleteHandler;
+import com.wandisco.gerrit.gitms.shared.exception.ConfigurationException;
 
 import java.io.IOException;
 
@@ -38,7 +39,7 @@ public class DeleteAction extends DeleteProject implements UiAction<ProjectResou
       DeleteLog deleteLog,
       DeletePreconditions preConditions,
       Configuration cfg,
-      HideProject hideProject) throws IOException {
+      HideProject hideProject) throws IOException, ConfigurationException {
     super(
         dbHandler,
         fsHandler,
