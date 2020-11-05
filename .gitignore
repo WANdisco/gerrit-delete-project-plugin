@@ -5,3 +5,4 @@
 /bazel-*
 /eclipse-out
 buck-out
+*.iml

@@ -83,23 +83,12 @@
           this.action.method, endpoint, this.json, errFn)
             .then(r => {
               this.plugin.restApi().invalidateReposCache();
-              if(this.isReplicated){
 
-                if(this.json["preserve"] == false){
-                   window.alert('The replicated project ' + this.repoName + ' was deleted "');
-                } else {
-                   window.alert('The replicated project ' + this.repoName + ' was cleaned up "');
-                }
+              let start = this.isReplicated ? 'The replicated project ' : 'The project ';
+              let end = this.json["preserve"] ? ' was cleaned up' : ' was deleted';
 
-              } else {
+              window.alert(start + this.repoName + end);
 
-                if(this.json["preserve"] == false){
-                   window.alert('The project ' + this.repoName + ' was deleted "');
-                } else {
-                   window.alert('The project ' + this.repoName + ' was cleaned up "');
-                }
-
-              }
               Gerrit.Nav.navigateToRelativeUrl('/admin/repos');
       });
     },
