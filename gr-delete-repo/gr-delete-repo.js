@@ -68,10 +68,12 @@
             };
           }
       } else {
-          //NON REPLICATED REPO PATH
+          // NON REPLICATED REPO PATH
+          // Note the $$ on preserve. See:
+          // https://polymer-library.polymer-project.org/1.0/docs/devguide/local-dom
           this.json = {
-              force: this.$.forceDeleteOpenChangesCheckBox.checked,
-              preserve: this.$.preserveGitRepoCheckBox.checked
+            force: this.$.forceDeleteOpenChangesCheckBox.checked,
+            preserve: this.$$('#preserveGitRepoCheckBox').checked
           };
       }
 
