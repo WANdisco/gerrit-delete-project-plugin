@@ -69,7 +69,6 @@ class DeleteProject implements RestModifyView<ProjectResource, Input> {
 
   private final HttpRequestBuilder requestBuilder;
   private final String deleteEndpoint = "/gerrit/delete";
-  private final GitMsApplicationProperties gitMsApplicationProperties;
 
   protected final DeletePreconditions preConditions;
 
@@ -90,7 +89,7 @@ class DeleteProject implements RestModifyView<ProjectResource, Input> {
       DeleteLog deleteLog,
       DeletePreconditions preConditions,
       Configuration cfg,
-      HideProject hideProject) throws IOException, ConfigurationException {
+      HideProject hideProject) {
     this.dbHandler = dbHandler;
     this.fsHandler = fsHandler;
     this.cacheHandler = cacheHandler;
@@ -99,11 +98,7 @@ class DeleteProject implements RestModifyView<ProjectResource, Input> {
     this.preConditions = preConditions;
     this.cfg = cfg;
     this.hideProject = hideProject;
-    this.gitMsApplicationProperties = new GitMsApplicationProperties();
-
-    final String host = gitMsApplicationProperties.getGitMSLocalJettyHost();
-    final int port = Integer.valueOf(gitMsApplicationProperties.getGitMSLocalJettyPort());
-    requestBuilder = setupHttpRequest(host, port, deleteEndpoint);
+    this.requestBuilder = Replicator.isReplicationDisabled() ? null : getRequestBuilder();
   }
 
   @Override
@@ -337,6 +332,12 @@ class DeleteProject implements RestModifyView<ProjectResource, Input> {
     requestBuilder.setRequestParameter("taskIdForDelayedRemoval", uuid);
   }
 
+  private HttpRequestBuilder getRequestBuilder() {
+    final GitMsApplicationProperties appProps = Replicator.getApplicationProperties();
+    return setupHttpRequest(appProps.getGitMSLocalJettyHost(),
+                            Integer.parseInt(appProps.getGitMSLocalJettyPort()),
+                            this.deleteEndpoint);
+  }
 
   /*
    * Makes the request to GitMS /gerrit/delete endpoint for the
