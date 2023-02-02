@@ -1,3 +1,16 @@
+
+/********************************************************************************
+ * Copyright (c) 2014-2018 WANdisco
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Apache License, Version 2.0
+ *
+ ********************************************************************************/
+ 
 // Copyright (C) 2013 The Android Open Source Project
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -61,6 +74,13 @@ public class FilesystemDeleteHandler {
     this.deletedListener = deletedListener;
     this.cfgFactory = cfgFactory;
     this.pluginName = pluginName;
+  }
+
+  public void deleteFromCache(Project project) throws RepositoryNotFoundException, IOException{
+    // Remove from the jgit cache
+    Repository repository =
+        repoManager.openRepository(project.getNameKey());
+    cleanCache(repository);
   }
 
   public void delete(Project project, boolean preserveGitRepository)
