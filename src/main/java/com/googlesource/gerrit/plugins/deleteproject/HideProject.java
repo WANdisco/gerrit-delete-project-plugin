@@ -1,3 +1,16 @@
+
+/********************************************************************************
+ * Copyright (c) 2014-2018 WANdisco
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Apache License, Version 2.0
+ *
+ ********************************************************************************/
+ 
 // Copyright (C) 2015 The Android Open Source Project
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,6 +31,7 @@ import com.google.gerrit.common.data.AccessSection;
 import com.google.gerrit.extensions.annotations.PluginName;
 import com.google.gerrit.extensions.client.ProjectState;
 import com.google.gerrit.extensions.restapi.BadRequestException;
+import com.google.gerrit.extensions.restapi.PreconditionFailedException;
 import com.google.gerrit.extensions.restapi.ResourceConflictException;
 import com.google.gerrit.extensions.restapi.ResourceNotFoundException;
 import com.google.gerrit.extensions.restapi.TopLevelResource;
@@ -97,7 +111,7 @@ class HideProject {
         createProjectFactory.create(projectName).apply(
             TopLevelResource.INSTANCE, null);
       } catch (BadRequestException | UnprocessableEntityException
-          | ResourceNotFoundException | ConfigInvalidException e) {
+          | ResourceNotFoundException | ConfigInvalidException | PreconditionFailedException e) {
         throw new ResourceConflictException(String.format(
             "Failed to create project %s", projectName));
       }
