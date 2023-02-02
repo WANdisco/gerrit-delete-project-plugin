@@ -1,16 +1,19 @@
 Configuration
 =============
 
+NOTE: If a repository is a Git MultiSite replicated repository then some
+of the configuration options will be ignored.
+
 The configuration of the @PLUGIN@ plugin is done in the `gerrit.config`
 file.
 
 ```
   [plugin "@PLUGIN@"]
     allowDeletionOfReposWithTags = true
+
 ```
 
-<a id="allowDeletionOfReposWithTags">
-`plugin.@PLUGIN@.allowDeletionOfReposWithTags`
+plugin.@PLUGIN@.allowDeletionOfReposWithTags
 :	Whether repositories that contain tags can be deleted.
 
 	In some organizations repositories that contain tags must not be
@@ -21,8 +24,7 @@ file.
 
 	By default true.
 
-<a id="hideProjectOnPreserve">
-`plugin.@PLUGIN@.hideProjectOnPreserve`
+plugin.@PLUGIN@.hideProjectOnPreserve
 :	Whether projects should be hidden when the preserve option is used
 	for the deletion.
 
@@ -34,8 +36,11 @@ file.
 
 	By default false.
 
-<a id="enablePreserveOption">
-`plugin.@PLUGIN@.enablePreserveOption`
+plugin.@PLUGIN@.enablePreserveOption
+
+Warning: **This option is not configurable in the WANdisco fork of the delete-project plugin. 
+Please refer to about.md for more information**.
+
 :	Whether the "Preserve git repository" option is enabled for the user on the
     UI and ssh delete-project command.
 
@@ -47,8 +52,7 @@ file.
 
 	By default true.
 
-<a id="parentForDeletedProjects">
-`plugin.@PLUGIN@.parentForDeletedProjects`
+plugin.@PLUGIN@.parentForDeletedProjects
 :	The name of the project that is used as parent for all deleted
 	projects that were preserved by hiding them.
 
@@ -57,8 +61,7 @@ file.
 
 	By default `Deleted-Projects`.
 
-<a id="protectedProject">
-`plugin.@PLUGIN@.protectedProject`
+plugin.@PLUGIN@.protectedProject
 :	The name of a project that is protected against deletion. May be an exact
 	name or a regular expression.
 
@@ -67,9 +70,12 @@ file.
 
 	By default not set.
 
-<a id="archiveDeletedRepos">
-`plugin.@PLUGIN@.archiveDeletedRepos`
+
+plugin.@PLUGIN@.archiveDeletedRepos
 :	Whether to archive repositories instead of deleting them.
+
+Warning: **This configuration option will be ignored for Git MultiSite replicated 
+repositories. Repositories being deleted by GitMultiSite are always archived.**.
 
 	Archiving the git repository means that the repository is stored
 	in a folder which is not visible to the users which, from the user
@@ -92,8 +98,7 @@ file.
 
 	By default false.
 
-<a id="archiveFolder">
-`plugin.@PLUGIN@.archiveFolder`
+plugin.@PLUGIN@.archiveFolder
 :	The absolute path of the archive folder to store archived repositories.
 
 	The git repository is archived to this target folder only if
@@ -101,8 +106,7 @@ file.
 
 	By default `$site_path/data/delete-project`.
 
-<a id="deleteArchivedReposAfter">
-`plugin.@PLUGIN@.deleteArchivedReposAfter`
+plugin.@PLUGIN@.deleteArchivedReposAfter
 :	The time duration for the git repository to be archived.
 
 	The following suffixes are supported to define the time unit:\n

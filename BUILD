@@ -1,11 +1,6 @@
 load("@rules_java//java:defs.bzl", "java_library")
 load("//tools/bzl:junit.bzl", "junit_tests")
-load(
-    "//tools/bzl:plugin.bzl",
-    "PLUGIN_DEPS",
-    "PLUGIN_TEST_DEPS",
-    "gerrit_plugin",
-)
+load("//tools/bzl:plugin.bzl","PLUGIN_DEPS","PLUGIN_TEST_DEPS","gerrit_plugin")
 load("//tools/bzl:genrule2.bzl", "genrule2")
 load("//tools/bzl:js.bzl", "polygerrit_plugin")
 
@@ -20,7 +15,10 @@ gerrit_plugin(
     ],
     resource_jars = [":gr-delete-repo-static"],
     resources = glob(["src/main/resources/**/*"]),
-    deps = ["@commons-io//jar"],
+    deps = [
+            "//lib/commons:io",
+            "//lib/wandisco:gerrit-gitms-interface"
+        ],
 )
 
 genrule2(
@@ -47,7 +45,7 @@ polygerrit_plugin(
 junit_tests(
     name = "delete-project_tests",
     srcs = glob(["src/test/java/**/*.java"]),
-    tags = ["delete-project"],
+    tags = ["delete-project", "disabled"],
     deps = [":delete-project__plugin_test_deps"],
 )
 

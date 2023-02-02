@@ -19,8 +19,11 @@ import com.google.gerrit.extensions.webui.JavaScriptPlugin;
 import com.google.gerrit.extensions.webui.WebUiPlugin;
 import com.google.inject.Inject;
 import com.google.inject.servlet.ServletModule;
+import org.apache.log4j.LogManager;
+import org.apache.log4j.Logger;
 
 public class HttpModule extends ServletModule {
+  private static final Logger log = LogManager.getLogger(HttpModule.class.getName());
   private final Configuration cfg;
 
   @Inject
@@ -30,14 +33,14 @@ public class HttpModule extends ServletModule {
 
   @Override
   protected void configureServlets() {
-    if (cfg.enablePreserveOption()) {
-      DynamicSet.bind(binder(), WebUiPlugin.class)
-          .toInstance(new JavaScriptPlugin("delete-project.js"));
-      DynamicSet.bind(binder(), WebUiPlugin.class)
-          .toInstance(new JavaScriptPlugin("gr-delete-repo.html"));
-    } else {
-      DynamicSet.bind(binder(), WebUiPlugin.class)
-          .toInstance(new JavaScriptPlugin("delete-project-with-preserve-disabled.js"));
+    if (!cfg.enablePreserveOption()) {
+      log.warn("`enablePreserveOption=false` has been set in gerrit.config. This configuration will be ignored.");
     }
+
+    DynamicSet.bind(binder(), WebUiPlugin.class)
+              .toInstance(new JavaScriptPlugin("gr-delete-repo.html"));
+    // Required for old UI
+    DynamicSet.bind(binder(), WebUiPlugin.class)
+              .toInstance(new JavaScriptPlugin("delete-project.js"));
   }
 }
