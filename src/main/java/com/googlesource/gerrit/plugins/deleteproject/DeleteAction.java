@@ -14,6 +14,7 @@
 
 package com.googlesource.gerrit.plugins.deleteproject;
 
+import com.google.gerrit.common.ReplicatedProjectManager;
 import com.google.gerrit.extensions.annotations.PluginName;
 import com.google.gerrit.extensions.webui.UiAction;
 import com.google.gerrit.server.CurrentUser;
@@ -27,6 +28,11 @@ import com.googlesource.gerrit.plugins.deleteproject.cache.CacheDeleteHandler;
 import com.googlesource.gerrit.plugins.deleteproject.database.DatabaseDeleteHandler;
 import com.googlesource.gerrit.plugins.deleteproject.fs.FilesystemDeleteHandler;
 import com.googlesource.gerrit.plugins.deleteproject.projectconfig.ProjectConfigDeleteHandler;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
 
 public class DeleteAction extends DeleteProject implements
     UiAction<ProjectResource> {
@@ -47,12 +53,21 @@ public class DeleteAction extends DeleteProject implements
 
   @Override
   public UiAction.Description getDescription(ProjectResource rsrc) {
+    boolean replicated = true;
+    Logger log = LoggerFactory.getLogger(ReplicatedProjectManager.class);
+
+    try {
+      replicated = DeleteProject.isRepoReplicated(rsrc);
+    } catch (IOException e) {
+      log.error("Error accessing the project :", rsrc.getName(), " Error: ", e, " [ Assuming a replicated repo is in place. ]" );
+    }
     return new UiAction.Description()
-        .setLabel("Delete...")
-        .setTitle(isAllProjects(rsrc)
-            ? String.format("No deletion of %s project",
-                allProjectsName)
-            : String.format("Delete project %s", rsrc.getName()))
+        .setLabel(replicated ? "Clean up..." : "Delete...")
+        .setTitle(isAllProjects(rsrc) ?
+            String.format("No deletion of %s project", allProjectsName) :
+              String.format("%s%sproject %s",
+                  (replicated? "Clean up":"Delete"), (replicated? " replicated ":" "),
+                  rsrc.getName()))
         .setEnabled(!isAllProjects(rsrc))
         .setVisible(canDelete(rsrc));
   }
