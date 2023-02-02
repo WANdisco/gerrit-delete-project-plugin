@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.googlesource.gerrit.plugins.deleteproject.database;
 
 import com.google.common.collect.Lists;
@@ -58,7 +57,6 @@ import java.util.HashSet;
 public class DatabaseDeleteHandler {
   private static final Logger log =
       LoggerFactory.getLogger(DatabaseDeleteHandler.class);
-
   private final ReviewDb db;
   private final Provider<InternalChangeQuery> queryProvider;
   private final GitRepositoryManager repoManager;
@@ -67,7 +65,7 @@ public class DatabaseDeleteHandler {
   private final StarredChangesUtil starredChangesUtil;
   private final DynamicItem<AccountPatchReviewStore> accountPatchReviewStore;
   private final ChangeIndexer indexer;
-
+  
   @Inject
   public DatabaseDeleteHandler(ReviewDb db,
       Provider<InternalChangeQuery> queryProvider,
@@ -86,20 +84,18 @@ public class DatabaseDeleteHandler {
     this.accountPatchReviewStore = accountPatchReviewStore;
     this.indexer = indexer;
   }
-
+  
   public Collection<String> getWarnings(Project project) throws OrmException {
     Collection<String> ret = Lists.newArrayList();
-
     // Warn against open changes
     List<ChangeData> openChanges =
         queryProvider.get().byProjectOpen(project.getNameKey());
     if (openChanges.iterator().hasNext()) {
       ret.add(project.getName() + " has open changes");
     }
-
     return ret;
   }
-
+  
   public void delete(Project project) throws OrmException {
     // TODO(davido): Why not to use 1.7 features?
     // http://docs.oracle.com/javase/specs/jls/se7/html/jls-14.html#jls-14.20.3.2
@@ -121,7 +117,7 @@ public class DatabaseDeleteHandler {
       throw new OrmException(e);
     }
   }
-
+  
   private final void deleteChanges(List<ChangeData> changeData)
       throws OrmException {
     for (ChangeData cd : changeData) {
@@ -131,7 +127,6 @@ public class DatabaseDeleteHandler {
       if (patchSets != null) {
         deleteFromPatchSets(patchSets);
       }
-
       // In the future, use schemaVersion to decide what to delete.
       db.patchComments().delete(db.patchComments().byChange(id));
       db.patchSetApprovals().delete(db.patchSetApprovals().byChange(id));
@@ -142,7 +137,6 @@ public class DatabaseDeleteHandler {
       }
       db.changeMessages().delete(db.changeMessages().byChange(id));
       db.changes().delete(Collections.singleton(cd.change()));
-
       // Delete from the secondary index
       try {
         indexer.delete(id);
@@ -152,7 +146,7 @@ public class DatabaseDeleteHandler {
       }
     }
   }
-
+  
   private final void deleteFromPatchSets(final ResultSet<PatchSet> patchSets)
       throws OrmException {
     for (PatchSet patchSet : patchSets) {
@@ -160,10 +154,9 @@ public class DatabaseDeleteHandler {
       db.patchSets().delete(Collections.singleton(patchSet));
     }
   }
-
+  
   public void assertCanDelete(Project project)
       throws CannotDeleteProjectException {
-
     Project.NameKey proj = project.getNameKey();
     try (Repository repo = repoManager.openRepository(proj);
          MergeOpRepoManager orm = ormProvider.get()) {
@@ -187,13 +180,51 @@ public class DatabaseDeleteHandler {
           "Project is subscribed by other projects.");
     }
   }
-
+  
   public void atomicDelete(Project project) throws OrmException {
     List<ChangeData> changes =
         queryProvider.get().byProject(project.getNameKey());
     deleteChanges(changes);
-
     db.accountProjectWatches().delete(
         db.accountProjectWatches().byProject(project.getNameKey()));
+  }
+
+  public List<ChangeData> replicatedDeleteChanges(Project project) throws OrmException {
+    // TODO(davido): Why not to use 1.7 features?
+    // http://docs.oracle.com/javase/specs/jls/se7/html/jls-14.html#jls-14.20.3.2
+    Connection conn = ((JdbcSchema) db).getConnection();
+    List<ChangeData> changes = null;
+    try {
+      conn.setAutoCommit(false);
+      try {
+        changes = atomicDeleteChanges(project);
+        conn.commit();
+      } finally {
+        conn.setAutoCommit(true);
+      }
+    } catch (SQLException e) {
+      try {
+        conn.rollback();
+      } catch (SQLException ex) {
+        throw new OrmException(ex);
+      }
+      throw new OrmException(e);
+    }
+
+    return changes;
+  }
+
+  public List<ChangeData> atomicDeleteChanges(Project project) throws OrmException {
+    List<ChangeData> changes =
+        queryProvider.get().byProject(project.getNameKey());
+    List<ChangeData> deleteChangesToReplicate = changes;
+    deleteChanges(changes);
+
+    db.accountProjectWatches()
+    .delete(
+        db.accountProjectWatches().byProject(
+            project.getNameKey()));
+
+    return deleteChangesToReplicate;
   }
 }
